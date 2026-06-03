@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم وتقييم رسائل تيليجرام</title>
+  
+  <!-- معالج أخطاء جافاسكريبت لعرضها على الواجهة مباشرة لتسهيل التشخيص -->
+  <script>
+    window.addEventListener('error', function(event) {
+      const errorDiv = document.getElementById('js-global-error') || document.createElement('div');
+      errorDiv.id = 'js-global-error';
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '0';
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.background = '#ef4444';
+      errorDiv.style.color = 'white';
+      errorDiv.style.padding = '15px';
+      errorDiv.style.zIndex = '99999';
+      errorDiv.style.fontSize = '14px';
+      errorDiv.style.fontFamily = 'monospace';
+      errorDiv.style.direction = 'ltr';
+      errorDiv.style.textAlign = 'left';
+      errorDiv.innerHTML = '<b>JS Runtime Error:</b> ' + event.message + '<br><b>File:</b> ' + event.filename + ':' + event.lineno;
+      document.body.appendChild(errorDiv);
+    });
+
+    window.addEventListener('unhandledrejection', function(event) {
+      const errorDiv = document.getElementById('js-promise-error') || document.createElement('div');
+      errorDiv.id = 'js-promise-error';
+      errorDiv.style.position = 'fixed';
+      errorDiv.style.top = '60px';
+      errorDiv.style.left = '0';
+      errorDiv.style.width = '100%';
+      errorDiv.style.background = '#f59e0b';
+      errorDiv.style.color = 'white';
+      errorDiv.style.padding = '15px';
+      errorDiv.style.zIndex = '99999';
+      errorDiv.style.fontSize = '14px';
+      errorDiv.style.fontFamily = 'monospace';
+      errorDiv.style.direction = 'ltr';
+      errorDiv.style.textAlign = 'left';
+      errorDiv.innerHTML = '<b>Unhandled Promise Rejection:</b> ' + event.reason;
+      document.body.appendChild(errorDiv);
+    });
+  </script>
+
+  <!-- خط تجوال من Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <!-- أيقونات FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- مكتبة Chart.js للرسوم البيانية -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- مكتبة Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- ملف الأنماط الخاص بنا -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="dashboard-container">
+    
+    <!-- القائمة الجانبية (Sidebar) -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <i class="fa-brands fa-telegram brand-icon"></i>
+        <h2>محلل تيليجرام</h2>
+      </div>
+      
+      <!-- إحصائيات سريعة في الجانب -->
+      <div class="mini-stats">
+        <div class="m-stat-card">
+          <span class="m-stat-title">الإجمالي</span>
+          <span class="m-stat-value" id="stat-total">0</span>
+        </div>
+        <div class="m-stat-card">
+          <span class="m-stat-title">قيد الانتظار</span>
+          <span class="m-stat-value text-warning" id="stat-pending">0</span>
+        </div>
+        <div class="m-stat-card">
+          <span class="m-stat-title">تم التحليل</span>
+          <span class="m-stat-value text-success" id="stat-analyzed">0</span>
+        </div>
+      </div>
+
+      <!-- أزرار الإجراءات للسكربتات -->
+      <div class="sidebar-footer">
+        <p>التحديث التلقائي نشط</p>
+        <span class="pulse-indicator"></span>
+      </div>
+    </aside>
+
+    <!-- المحتوى الرئيسي (Main Content) -->
+    <main class="main-content">
+      
+      <!-- شريط العنوان العلوي -->
+      <header class="main-header">
+        <div>
+          <h1>لوحة تحليل وتطوير المحادثات</h1>
+          <p class="subtitle">تتبع، تحليل، وتقييم رسائل الدعم الفني الواردة من قنوات تيليجرام</p>
+        </div>
+        <div class="header-controls">
+          <button id="btn-collect" class="action-btn header-btn">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+            <span>جلب الرسائل</span>
+          </button>
+          <button id="btn-analyze" class="action-btn accent header-btn">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>تقييم بالذكاء الاصطناعي</span>
+          </button>
+          <button id="btn-refresh" class="icon-button" title="تحديث البيانات">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- قسم الإحصائيات الرئيسي (KPIs) -->
+      <section class="kpi-grid">
+        <div class="kpi-card glass">
+          <div class="kpi-icon urgency-high-bg"><i class="fa-solid fa-fire"></i></div>
+          <div class="kpi-info">
+            <h3>استعجال مرتفع</h3>
+            <p id="kpi-urgent-count">0</p>
+          </div>
+        </div>
+        <div class="kpi-card glass">
+          <div class="kpi-icon positive-bg"><i class="fa-solid fa-face-smile"></i></div>
+          <div class="kpi-info">
+            <h3>رسائل إيجابية</h3>
+            <p id="kpi-positive-count">0</p>
+          </div>
+        </div>
+        <div class="kpi-card glass">
+          <div class="kpi-icon rating-bg"><i class="fa-solid fa-star"></i></div>
+          <div class="kpi-info">
+            <h3>متوسط التقييم</h3>
+            <p id="kpi-avg-rating">0.0</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- قسم الرسوم البيانية -->
+      <section class="charts-grid">
+        <div class="chart-card glass">
+          <h3>توزيع مدى الاستعجال</h3>
+          <div class="chart-container">
+            <canvas id="urgencyChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card glass">
+          <h3>تحليل المشاعر والرضا</h3>
+          <div class="chart-container">
+            <canvas id="sentimentChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- شريط البحث والتصفية -->
+      <section class="filter-bar glass">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="search-input" placeholder="البحث في الرسائل والمحادثات...">
+        </div>
+        
+        <div class="filter-controls">
+          <select id="filter-urgency">
+            <option value="all">كل درجات الاستعجال</option>
+            <option value="high">مرتفع</option>
+            <option value="medium">متوسط</option>
+            <option value="low">منخفض</option>
+          </select>
+
+          <select id="filter-category">
+            <option value="all">كل الأقسام</option>
+            <option value="billing">فواتير ودفع</option>
+            <option value="technical">دعم فني وأعطال</option>
+            <option value="sales">مبيعات وطلبات</option>
+            <option value="general">استفسارات عامة</option>
+            <option value="complaint">شكاوى</option>
+          </select>
+
+          <select id="filter-status">
+            <option value="all">كل الحالات</option>
+            <option value="pending">قيد الانتظار</option>
+            <option value="analyzed">تم التحليل</option>
+            <option value="resolved">تم الحل</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- قائمة الرسائل والمحادثات -->
+      <section class="messages-section">
+        <div class="section-title-bar">
+          <h2>قائمة المحادثات والرسائل الواردة</h2>
+          <span class="results-count" id="results-count">جاري التحميل...</span>
+        </div>
+        
+        <div class="messages-list" id="messages-list">
+          <!-- سيتم إدراج كروت الرسائل هنا عبر Javascript -->
+          <div class="loading-state">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>جاري جلب البيانات من Supabase...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- لوحة تفاصيل المحادثة والتقييم الجانبية (Details Drawer) -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <div class="details-drawer glass" id="details-drawer">
+    <div class="drawer-header">
+      <h2>تفاصيل وتقييم المحادثة</h2>
+      <button class="close-drawer" id="close-drawer-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="drawer-body" id="drawer-body">
+      <!-- يتم حقنه ديناميكياً -->
+    </div>
+  </div>
+
+  <!-- مودال الإجراءات واللوغات للسكربتات -->
+  <div class="modal" id="sync-modal">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3 id="modal-title">تشغيل السكربت</h3>
+        <button class="close-modal" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-status">
+          <i class="fa-solid fa-spinner fa-spin status-spinner"></i>
+          <span id="modal-status-text">جاري تنفيذ العملية...</span>
+        </div>
+        <pre class="console-log" id="console-output"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- جلب مفاتيح الإعدادات -->
+  <script src="config.js"></script>
+  <!-- الكود البرمجي للوحة التحكم -->
+  <script src="app.js"></script>
+</body>
+</html>

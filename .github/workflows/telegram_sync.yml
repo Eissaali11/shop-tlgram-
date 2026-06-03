@@ -1,0 +1,48 @@
+name: Telegram Support Sync & Analyze
+
+on:
+  schedule:
+    # يشتغل تلقائياً كل ساعة (أو يمكنك تعديلها)
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # يسمح بتشغيل السكربت يدوياً من واجهة GitHub
+
+jobs:
+  sync-and-analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install UV package manager
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Restore Telegram Session File
+        run: |
+          echo "${{ secrets.TG_SESSION_GZIP_BASE64 }}" | base64 -d | gunzip > shopstore_session.session
+
+      - name: Run Telegram Collector
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_PHONE: ${{ secrets.TG_PHONE }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TG_TARGET_CHATS: ${{ secrets.TG_TARGET_CHATS }}
+          LOOKBACK_HOURS: 720
+        run: |
+          uv run python collect_telegram.py
+
+      - name: Run AI Analysis
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          uv run python analyze_telegram.py
